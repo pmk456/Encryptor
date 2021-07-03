@@ -1,47 +1,105 @@
-# Python-Open-Weather
+# Py-Encryptor
+## What's New
+```
+* Added New Enccryption Class Fernet_Encryption
+* Added File Encryption
+* Added Doc For Every Function
+* Many Bugs Fixed
+* Many Exceptions Catched Under Try Except
+```
 ## Installation
 ```
-pip install python-open-weather
+pip install AES-Encryptor
 ```
 ## Using git
 ```
-git clone https://github.com/pmk456/python-open-weather
-cd py_open_weather
+git clone https://github.com/pmk456/Encryptor
+cd Encryptor
 python setup.py install
 ```
 ## Usage
-### Get Weather Of a City
+### Encrypt File Using Fernet (RECOMMENDED)
 ```
-from weather import Weather
-weather = Weather(temperature_unit=None) # Celsius (or) Kelvin (or) Fahrenheit
-current_weather = weather.fetch_weather(city='CityName', only_temp=False) # if only_temp is set To True It Will Only return The current temperature in given unit
-print(current_weather) # Returns Dictionary with City name, Temperature, Humidity, Pressure, Description
-[+] OUTPUT IF TEMPERATURE_UNIT IS NONE
-{'City: ': 'Kadiri', 'Temperature In Kelvin: ': '304°K', 'Temperature In Celsius: ': '31°C', 'Temperature In Fahrenheit: ': '88°F', 'Pressure: ': 1008, 'Humidity: ': 42, 'Description: ': 'overcast clouds'}
-[+] OUTPUT IF TEMPERATURE UNIT IS SET CELSIUS OR KELVIN OR FAHRENHEIT
-{'City: ': 'Kadiri', 'Temperature: ': '{TEMPERATURE IN C OR K OR F}', 'Pressure: ': 1008, 'Humidity: ': 42, 'Description: ': 'overcast clouds'}
-[+] OUTPUT IF ONLY_TEMP IS SET TO TRUE
-31°C
+From Encryptor import Fernet_Encryption
+cipher = Fernet_Encryption(key='keytouse')
+cipher.encrypt(path)
+# Output
+Encrypted File with Extension .enc will be In The Same Path
 ```
-### Get A Table With Temperatures of given city list
+### Encrypt File Using AES (NOT RECOMMENDED)
 ```
-# Note: This uses prettytable Module So please Install it Using [ pip install prettytable ]
-from weather import Weather, celsius
-weather = Weather(temperature_unit=celsius)
-city = ['Kadiri', 'Hindupur', 'Anantapur', 'Bangalore', 'Kolkata', 'Mumbai']
-table = weather.fetch_multiple_city_weather(city)
-print(table)
-[+] OUTPUT
-+-----------------------------------------------------------------+
-|                           Weather Data                        |
-+-----------+-------------+----------+----------+-----------------+
-|    City   | Temperature | Pressure | Humidity |   Description   |
-+-----------+-------------+----------+----------+-----------------+
-|   Kadiri  |     31°C    |   1008   |    42    | overcast clouds |
-|  Hindupur |     29°C    |   1009   |    50    | overcast clouds |
-| Anantapur |     32°C    |   1008   |    46    | overcast clouds |
-| Bangalore |     26°C    |   941    |    64    |    few clouds   |
-|  Kolkata  |     30°C    |   1004   |    89    |       haze      |
-|   Mumbai  |     29°C    |   1008   |    84    |       haze      |
-+-----------+-------------+----------+----------+-----------------+
+from Encryptor import AES_Encryption
+cipher = AES_Encryption(key='keytouse', iv='this is iv 45611')
+print(cipher.file_encrypt(path))
+### Output
+File Successfully Encrypted With Given Key
+In Case Of any exception:
+Something Went Wrong During Encryption Of The File
+path.enc // THIS IS ENCRYPTED FILE WHICH IS SAVED IN THE GIVEN PATH
+```
+### Decrypt File Using Fernet
+```
+from Encryptor import Fernet_Encryption
+cipher = Fernet_Encryption(key='keywhichusedtoencrypt')
+cipher.file_decrypt(path='path\to\file.enc')
+# output
+Decrypted File will be in the same given path
+```
+
+### Decrypt File Using AES
+```
+from Encryptor import AES_Encryption
+cipher = AES_Encryption(key='keytouse', iv='This is iv 45611')
+print(cipher.file_decrypt(path))
+### OUTPUT
+File Successfully Decrypted With Given Key
+In Case Of any exception:
+Something Went Wrong During Decryption Of The File
+If nothing went wrong:
+path // THIS IS DECRYPTED FILE WHICH IS SAVED IN THE GIVEN PATH
+```
+### Encrypt String Using AES
+```
+from Encryptor import AES_Encryption
+cipher = AES_Encryption(key='keytouse', iv='this is iv 45611')
+cipher.encrypt("Hello")
+### OUTPUT
+b'}%\x99\x00b3\xb0?\xe5\t\x07wc\xa8\xc6\x8d'
+```
+### Encrypt String Using Fernet
+```
+from Encryptor import Fernet_Encryption
+cipher = Fernet_Encryption(key='keytouse')
+cipher.encrypt('string')
+# Output
+b'gAAAAABg4AFMaGOzEvKpJgArUvJrmhTPLZIio5qAz96PAHs4CWlInKHS-nA48G_2RwQKbHQcDy3fei1ctH5luGSThqkZC520AA=='
+```
+
+### Decrypt String Using AES
+```
+from Encryptor import AES_Encryption
+cipher = AES_Encryption(key='keytouse', iv='this is iv 45611')
+cipher.decrypt(b'}%\x99\x00b3\xb0?\xe5\t\x07wc\xa8\xc6\x8d')
+### OUTPUT
+'Hello'
+```
+### Decrypt String Using Fernet
+```
+from Encryptor import Fernet_Encryption
+cipher = Fernet_Encryption(key='keytouse')
+cipher.decrypt(b'gAAAAABg4AFMaGOzEvKpJgArUvJrmhTPLZIio5qAz96PAHs4CWlInKHS-nA48G_2RwQKbHQcDy3fei1ctH5luGSThqkZC520AA==')
+# Output
+string
+```
+### About
+```
+Hi, I Am Patan Musthakheem I Am The Author Of This Package.
+I Created This Tool For Beginners Who Want to encrypt their string or file
+using any encryption but they dont know how to use it because 
+for beginners it is bit of difficult for using Encryption like AES from scratch.
+I Faced Many issues when learning how to encrypt strings and files in python when
+when i am beginner i decided to create a very simple tool which will encrypt strings and files
+in one line of code.
+That day has came, Now you can encrypt and decrypt strings in one line of code.
+Thanks To Me.
 ```

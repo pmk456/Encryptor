@@ -1,5 +1,5 @@
 # Author: Patan Musthakheem
-# Version: 2.0
+# Version: 2.1
 # Licence: Apache 2.0
 # Please Refer To The https://github.com/pmk456/Encryptor README.md
 # Whats New:
@@ -15,17 +15,6 @@ from hashlib import sha256
 
 class InvalidKey(ValueError):
     pass
-
-
-def pad(data):
-    """
-    This Function Is Created For Padding Messages into multiple of 16
-    :param data: Data which is not a multiple of 16
-    :return: returns encoded string and make it multiple of 16
-    """
-    while len(data) % 16 != 0:
-        data = data + ' '
-    return data.encode()
 
 
 class AES_Encryption:
@@ -65,6 +54,28 @@ class AES_Encryption:
         self.IV = iv.encode()
         self.mode = mode
 
+    @staticmethod
+    def __pad(data):
+        """
+        This Function Is Created For Padding Messages into multiple of 16
+        :param data: Data which is not a multiple of 16
+        :return: returns encoded string and make it multiple of 16
+        """
+        while len(data) % 16 != 0:
+            data = data + ' '
+        return data.encode()
+
+    @staticmethod
+    def __file_pad(bin_data):
+        """
+        This Function is to pad the binary data of the file used For File Encryption
+        :param bin_data: Data Which Want to be padded
+        :return: Bin data Padded
+        """
+        while len(bin_data) % 16 != 0:
+            bin_data += b'0'
+        return bin_data
+
     def encrypt(self, message):
         """
         Used To Encrypt Strings
@@ -75,7 +86,7 @@ class AES_Encryption:
             raise ValueError('Message Must Be String')
         try:
             cipher = self.AES.new(key=self.key, mode=self.mode, iv=self.IV)
-            encrypted_msg = cipher.encrypt(pad(message))
+            encrypted_msg = cipher.encrypt(self.__pad(message))
         except Exception:
             raise Exception("Something Went Wrong")
         else:
@@ -97,10 +108,11 @@ class AES_Encryption:
         else:
             return decrypted_data.decode().rstrip()
 
-    def file_encrypt(self, path):
+    def file_encrypt(self, path: str, return_data: bool = False):
         """
         Used To Encrypt The File
         :param path: Path Of The File Note: If You are using windows please put [ \\ ]
+        :param return_data: Returns Encrypted Data If Set To True
         :return: Encrypted File In the same given path with the same name but with extension .enc
         """
         if not os.path.exists(path):
@@ -110,8 +122,8 @@ class AES_Encryption:
             raise FileNotFoundError
         try:
             cipher = self.AES.new(key=self.key, mode=self.mode, iv=self.IV)
-            with open(path) as file:
-                data = pad(file.read())
+            with open(path, 'rb') as file:
+                data = self.__file_pad(file.read())
                 encrypted_data = cipher.encrypt(data)
             new = path + '.enc'
             with open(new, 'wb') as file:
@@ -119,14 +131,15 @@ class AES_Encryption:
         except Exception:
             raise Exception('Something Went Wrong During Encryption Of The File Please Use self.Fernet_Encryption For '
                             'Avoiding ERRORS')
-        else:
-            return '''File Successfully Encrypted With Given Key'''
+        if return_data:
+            return encrypted_data
 
-    def file_decrypt(self, path):
+    def file_decrypt(self, path: str, return_data=False) -> bytes:
         """
         Used To Decrypt The File
         :param path: Path Of The File Note: If You are using windows please put [ \\ ]
         Example: C:\\Windows\\System32\\File.txt
+        :param return_data: Returns Decrypted Data If Set To True
         :return: Decrypted File With Removed .enc extension In the same given path
         """
         if not isinstance(path, str):
@@ -140,14 +153,14 @@ class AES_Encryption:
             cipher = self.AES.new(key=self.key, mode=self.mode, iv=self.IV)
             with open(path, 'rb') as file:
                 data = file.read()
-                decrypted_data = cipher.decrypt(data)
+                decrypted_data = cipher.decrypt(data).rstrip(b'0')
             new = path.replace('.enc', '')
             with open(new, 'wb') as file:
                 file.write(decrypted_data)
         except Exception:
-            raise InvalidKey("Please Check the Key")
-        else:
-            return '''File Successfully Decrypted With Given Key'''
+            raise InvalidKey("Please Check the Key, IV and Data")
+        if return_data:
+            return decrypted_data
 
 
 class Fernet_Encryption:
@@ -220,8 +233,8 @@ class Fernet_Encryption:
         try:
             with open(path, 'rb') as file:
                 data = file.read()
-        except PermissionError:
-            raise PermissionError
+        except PermissionError or FileNotFoundError or FileExistsError:
+            raise
         name = path + '.enc'
         encrypted_data = cipher.encrypt(data)
         with open(name, 'wb') as file2:
@@ -231,7 +244,6 @@ class Fernet_Encryption:
 
     def file_decrypt(self, path: str, return_data=False):
         """
-        Path of the encrypted file
         :param path: Path of the encrypted file
         :param return_data: if true returns decrypted data
         :return: if return_Data is set to true returns decrypted data

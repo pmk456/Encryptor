@@ -1,20 +1,115 @@
 # Author: Patan Musthakheem
-# Version: 2.1
+# Version: 2.2
 # Licence: Apache 2.0
 # Please Refer To The https://github.com/pmk456/Encryptor README.md
 # Whats New:
-# * A New Encryption Method Fernet Added
-# * Added File Encryption
+# * A New Encryption Method Bush Encryption Added
 # * Many Bugs Fixed
+# * Added File Encryption
 # * Many Exceptions Are Caught Now Under Try Except Blocks
-import os
+# * Upgraded To Version 2.2
 import sys
+import os
 from base64 import urlsafe_b64encode
 from hashlib import sha256
+from Crypto.Cipher import AES
+from bush import Bush
+from cryptography.fernet import Fernet
 
 
 class InvalidKey(ValueError):
     pass
+
+
+class FileError(Exception):
+    pass
+
+
+class Bush_Encryption:
+    """
+    This Algorithm is inspired From Fernet which uses AES
+    The Encrypted Cipher Text changes every time you run the code
+    because of change in IV (Initializing Vector) Which is generated from
+    OS and it is embedded in the cipher text as well!
+    And It uses Sha256 for making sure that the data is not altered in any manners
+    And the Sha256 Digest is also embedded in the cipher text as well.
+    Which Makes This Algorithm A Bit Different From Other Algorithms
+    """
+
+    def __init__(self, key):
+        """
+        Constructor
+        :param key: Key To use
+        """
+        self.key = key.encode()
+
+    def encrypt(self, message: str) -> bytes:
+        """
+        To Encrypt Strings
+        :param message: Message Which Want to Encrypted
+        :return: Bytes With Encrypted Message
+        """
+        if not isinstance(message, str):
+            raise ValueError("Message Must Be String")
+        cipher = Bush(self.key)
+        return cipher.encrypt(message.encode())
+
+    def decrypt(self, data: bytes) -> str:
+        """
+        To Decrypt Strings
+        :param data: Data Which Is Encrypted
+        :return: String Decrypted
+        """
+        if not isinstance(data, bytes):
+            raise ValueError("Data Must Be Bytes")
+        cipher = Bush(self.key)
+        return cipher.decrypt(data).decode().rstrip()
+
+    def file_encrypt(self, path: str, return_data: bool = False) -> bytes:
+        """
+        :param path: Path of the file
+        :param return_data: If true return encrypted data
+        :return None
+        """
+        if not os.path.exists(path):
+            raise FileNotFoundError("File Not Found Please Check The Path")
+        cipher = Bush(key=self.key)
+        with open(path, "rb") as file:
+            data = file.read()
+        pass
+        encrypted_data = cipher.encrypt(data)
+        new = path + '.enc'
+        try:
+            with open(new, 'wb') as file:
+                file.write(encrypted_data)
+        except (PermissionError, FileExistsError):
+            raise FileError
+        if return_data:
+            return encrypted_data
+
+    def file_decrypt(self, path: str, return_data: bool = False):
+        """
+        Used To Decrypt Files
+        :param path: Path Of The File with .enc Extension
+        :param return_data: if true returns decrypted data
+        :return: None
+        """
+        if not os.path.exists(path):
+            raise FileNotFoundError("File Not Found Please Check The Path")
+        if not path.endswith('.enc'):
+            raise FileError("File Doesn't Contain .enc Extension")
+        try:
+            with open(path, 'rb') as file:
+                data = file.read()
+            cipher = Bush(self.key)
+            dec_data = cipher.decrypt(data)
+            new = path.replace(".enc", "")
+            with open(new, 'wb') as file:
+                file.write(dec_data)
+        except (FileExistsError, PermissionError, ValueError):
+            raise FileError("Something Wrong With The File Permissions")
+        if return_data:
+            return dec_data
 
 
 class AES_Encryption:
@@ -26,12 +121,6 @@ class AES_Encryption:
      Please Refer To The https://github.com/pmk456/AES-Encryptor README.md
      For Perfectly Using This Package
     """
-    try:
-        from Crypto.Cipher import AES
-    except ImportError:
-        print("Pycryptodome Is Not Found On This Computer\n"
-              "Please Install using pip [ pip install pycryptodome ]")
-        sys.exit(1)
 
     def __init__(self, key, iv="THIS IS IV 45600", mode=AES.MODE_CBC):
         """
@@ -53,6 +142,7 @@ class AES_Encryption:
         self.key = sha256(key.encode()).digest()
         self.IV = iv.encode()
         self.mode = mode
+        self.AES = AES
 
     @staticmethod
     def __pad(data):
@@ -117,9 +207,9 @@ class AES_Encryption:
         """
         if not os.path.exists(path):
             if sys.platform == 'win32':
-                print(r"Note: If You are using windows please put[ \\ ]\n"
-                      r"Example: C:\\Windows\\System32\\File.txt")
-            raise FileNotFoundError
+                print("Note: If You are using windows please put[ \\\\ ]\n"
+                      "Example: C:\\\\Windows\\\\System32\\\\File.txt")
+            raise FileNotFoundError("File Not Found Please Check The Path")
         try:
             cipher = self.AES.new(key=self.key, mode=self.mode, iv=self.IV)
             with open(path, 'rb') as file:
@@ -146,9 +236,11 @@ class AES_Encryption:
             raise ValueError('Path Must Be String')
         if not os.path.exists(path):
             if sys.platform == 'win32':
-                print(r"Note: If You are using windows please put[ \\ ]\n"
-                      r"Example: C:\\Windows\\System32\\File.txt")
-            raise FileNotFoundError
+                print("Note: If You are using windows please put[ \\\\ ]\n"
+                      "Example: C:\\\\Windows\\\\System32\\\\File.txt")
+            raise FileNotFoundError("File Not Found Please Check The Path")
+        if not path.endswith('.enc'):
+            raise ValueError("File Doesn't Contain .enc Extension")
         try:
             cipher = self.AES.new(key=self.key, mode=self.mode, iv=self.IV)
             with open(path, 'rb') as file:
@@ -173,13 +265,6 @@ class Fernet_Encryption:
     with HMAC using SHA256 for authentication.
     The IV is created from os
     """
-    try:
-        from cryptography.fernet import Fernet
-    except ImportError:
-        print("cryptography package Is Not Installed\n"
-              "Please Install It using [ pip install cryptography ]")
-        Fernet = None
-        sys.exit(1)
 
     def __init__(self, key: str):
         """
@@ -187,6 +272,7 @@ class Fernet_Encryption:
         :param key: Key To Use
         """
         self.key = urlsafe_b64encode(sha256(key.encode()).digest())
+        self.Fernet = Fernet
 
     def encrypt(self, msg: str) -> bytes:
         """
@@ -215,7 +301,7 @@ class Fernet_Encryption:
         try:
             decrypted_msg = cipher.decrypt(data)
         except ValueError:
-            raise InvalidKey
+            raise InvalidKey("Please Check The Key")
         return decrypted_msg.decode()
 
     def file_encrypt(self, path: str, return_data=False) -> bytes:
@@ -226,7 +312,7 @@ class Fernet_Encryption:
         :return: if return_data is set to True Returns Encrypted Data
         """
         if not isinstance(path, str):
-            raise ValueError('Path Must Be A String')
+            raise FileError('Path Must Be A String')
         cipher = self.Fernet(self.key)
         if not os.path.exists(path):
             raise FileNotFoundError('File Not Found Please Check The Path')
@@ -250,6 +336,8 @@ class Fernet_Encryption:
         """
         if not isinstance(path, str):
             raise ValueError('Path Must Be A String')
+        if not path.endswith('.enc'):
+            raise FileError("File Doesn't Contain .enc Extension")
         cipher = self.Fernet(self.key)
         if not os.path.exists(path):
             raise FileNotFoundError('File Not Found Please Check The Path')

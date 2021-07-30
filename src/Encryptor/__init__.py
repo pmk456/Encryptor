@@ -1,20 +1,22 @@
 # Author: Patan Musthakheem
-# Version: 2.2
+# Version: 2.3
 # Licence: Apache 2.0
 # Please Refer To The https://github.com/pmk456/Encryptor README.md
 # Whats New:
-# * A New Encryption Method Bush Encryption Added
+# * A New Encryption Method Bush Encryption, RSA Encryption Added
 # * Many Bugs Fixed
 # * Added File Encryption
 # * Many Exceptions Are Caught Now Under Try Except Blocks
-# * Upgraded To Version 2.2
-import sys
+# * Upgraded To Version 2.3
 import os
+import rsa
+import sys
 from base64 import urlsafe_b64encode
 from hashlib import sha256
 from Crypto.Cipher import AES
 from bush import Bush
 from cryptography.fernet import Fernet
+from .enc import EncBP
 
 
 class InvalidKey(ValueError):
@@ -25,7 +27,15 @@ class FileError(Exception):
     pass
 
 
-class Bush_Encryption:
+class PrivateKeyNotFound(ValueError):
+    pass
+
+
+class VerificationFailed(Exception):
+    pass
+
+
+class Bush_Encryption(EncBP):
     """
     This Algorithm is inspired From Fernet which uses AES
     The Encrypted Cipher Text changes every time you run the code
@@ -41,18 +51,20 @@ class Bush_Encryption:
         Constructor
         :param key: Key To use
         """
-        self.key = key.encode()
+        self.key = key
+        if not isinstance(key, bytes):
+            self.key = key.encode()
 
-    def encrypt(self, message: str) -> bytes:
+    def encrypt(self, message) -> bytes:
         """
         To Encrypt Strings
         :param message: Message Which Want to Encrypted
         :return: Bytes With Encrypted Message
         """
-        if not isinstance(message, str):
-            raise ValueError("Message Must Be String")
+        if not isinstance(message, bytes):
+            message = message.encode()
         cipher = Bush(self.key)
-        return cipher.encrypt(message.encode())
+        return cipher.encrypt(message)
 
     def decrypt(self, data: bytes) -> str:
         """
@@ -63,7 +75,7 @@ class Bush_Encryption:
         if not isinstance(data, bytes):
             raise ValueError("Data Must Be Bytes")
         cipher = Bush(self.key)
-        return cipher.decrypt(data).decode().rstrip()
+        return cipher.decrypt(data).rstrip()
 
     def file_encrypt(self, path: str, return_data: bool = False) -> bytes:
         """
@@ -73,11 +85,10 @@ class Bush_Encryption:
         """
         if not os.path.exists(path):
             raise FileNotFoundError("File Not Found Please Check The Path")
-        cipher = Bush(key=self.key)
         with open(path, "rb") as file:
             data = file.read()
         pass
-        encrypted_data = cipher.encrypt(data)
+        encrypted_data = self.encrypt(data)
         new = path + '.enc'
         try:
             with open(new, 'wb') as file:
@@ -101,8 +112,7 @@ class Bush_Encryption:
         try:
             with open(path, 'rb') as file:
                 data = file.read()
-            cipher = Bush(self.key)
-            dec_data = cipher.decrypt(data)
+            dec_data = self.decrypt(data)
             new = path.replace(".enc", "")
             with open(new, 'wb') as file:
                 file.write(dec_data)
@@ -112,7 +122,7 @@ class Bush_Encryption:
             return dec_data
 
 
-class AES_Encryption:
+class AES_Encryption(EncBP):
     """
      The Advanced Encryption Standard (AES) is a symmetric block cipher chosen by the U.S. government to
      protect classified information. AES is implemented in software and hardware throughout the world to
@@ -255,7 +265,7 @@ class AES_Encryption:
             return decrypted_data
 
 
-class Fernet_Encryption:
+class Fernet_Encryption(EncBP):
     """
     Depends On cryptography.fernet Package
     self.Fernet is a symmetric encryption method which makes sure that the message encrypted cannot be manipulated/read
@@ -334,18 +344,18 @@ class Fernet_Encryption:
         :param return_data: if true returns decrypted data
         :return: if return_Data is set to true returns decrypted data
         """
+        if not os.path.exists(path):
+            raise FileNotFoundError('File Not Found Please Check The Path')
         if not isinstance(path, str):
             raise ValueError('Path Must Be A String')
         if not path.endswith('.enc'):
             raise FileError("File Doesn't Contain .enc Extension")
         cipher = self.Fernet(self.key)
-        if not os.path.exists(path):
-            raise FileNotFoundError('File Not Found Please Check The Path')
         try:
             with open(path, 'rb') as file:
                 data = file.read()
         except PermissionError:
-            raise PermissionError
+            raise
         new = path.replace('.enc', '')
         try:
             decrypted_data = cipher.decrypt(data)
@@ -355,3 +365,164 @@ class Fernet_Encryption:
             file2.write(decrypted_data)
         if return_data:
             return decrypted_data
+
+
+class RSA_Encryption(EncBP):
+    """
+    ASymmetric Encryption
+    RSA (Rivest–Shamir–Adleman) is a public-key cryptology that is widely used for secure data transmission.
+    It is also one of the oldest, a public-key cryptology, the encryption key is public and distinct from the
+    decryption key, which is kept secret (private). An RSA user creates and publishes a public key based on two large
+    prime numbers, along with an auxiliary value. The prime numbers are kept secret. Messages can be encrypted by anyone
+    , via the public key, but can only be decoded by someone who have the private Key
+    """
+
+    def __init__(self, public_file: str, private_file: str = None, generate_keys=False, key_size=512):
+        self.private_file = private_file
+        if private_file is not None:
+            if not os.path.exists(private_file):
+                raise FileNotFoundError("File Not Found Please Check The Path")
+            try:
+                with open(private_file, "rb") as file:
+                    self.private_key = rsa.PrivateKey.load_pkcs1(file.read())
+            except(ValueError, Exception):
+                raise Exception("Not A Valid Private Key File")
+        self.public_file = public_file
+        if key_size != 512 and generate_keys:
+            if key_size < 15:
+                raise ValueError("Key_size Is Too Short")
+            self.generate_keys(key_size)
+        try:
+            with open(public_file, "rb") as file:
+                data = file.read()
+                self.public_key = rsa.PublicKey.load_pkcs1(data)
+        except(ValueError, Exception):
+            raise
+
+    def encrypt(self, message: str) -> bytes:
+        if not isinstance(message, str):
+            raise ValueError("Message Must Be String")
+        try:
+            return rsa.encrypt(message.encode(), self.public_key)
+        except(ValueError, Exception):
+            raise Exception("Something Went Wrong During Encryption")
+
+    def decrypt(self, data: bytes) -> str:
+        if self.private_file is None:
+            raise PrivateKeyNotFound("Please Instantiate This Class With Private Key\n"
+                                     "Private Key Not Found")
+        if not isinstance(data, bytes):
+            raise ValueError("Data Must Be Bytes")
+        try:
+            return rsa.decrypt(data, self.private_key)
+        except(ValueError, Exception):
+            raise Exception("Something Went Wrong During Decryption")
+
+    def file_encrypt(self, path: str, return_data: bool = False) -> bytes:  # Don't use For larger Files (Deprecated)
+        if not isinstance(path, str):
+            raise ValueError("Path Must Be String")
+        if not os.path.exists(path):
+            raise FileNotFoundError("File Not Found Please Check The Path")
+        try:
+            with open(path, "rb") as file:
+                data = file.read()
+        except (PermissionError, Exception, OverflowError):
+            # OverFlow Error Will Be Raised When Data Is Too Large To Fit In Padded Block
+            raise
+        enc_data: bytes = rsa.encrypt(data, self.public_key)
+        new = path + '.enc'
+        try:
+            with open(new, "wb") as file:
+                file.write(enc_data)
+        except(PermissionError, FileExistsError):
+            raise
+        if return_data:
+            return enc_data
+
+    def file_decrypt(self, path: str, return_data: bool = False) -> bytes:  # (Deprecated)
+        if self.private_file is None:
+            raise PrivateKeyNotFound("Please Instantiate This Class With Private Key\n"
+                                     "Private Key Not Found")
+        if not isinstance(path, str):
+            raise ValueError("Path Must Be String")
+        if not path.endswith('.enc'):
+            raise FileError("File Doesn't Contain .enc Extension")
+        with open(path, "rb") as file:
+            try:
+                dec_data = rsa.decrypt(file.read(), self.private_key)
+            except(ValueError, Exception):
+                raise
+        try:
+            with open(path.replace(".enc", ""), "wb") as file:
+                file.write(dec_data)
+        except(ValueError, Exception):
+            raise FileError("Something Wrong With File Permissions")
+        if return_data:
+            return dec_data
+
+    def sign(self, data: bytes, algo: str = "SHA-1"):
+        """
+        :param data: Data Which Want To Sign
+        :param algo: the hash method to use on the data. Use 'MD5', 'SHA-1',
+        'SHA-224', SHA-256', 'SHA-384' or 'SHA-512'
+        :return: Signature Of The Data
+        """
+        if self.private_file is None:
+            raise PrivateKeyNotFound("Please Instantiate The Class With Private Key")
+        supported_algos = ['SHA-1', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512', "MD5"]
+        if algo not in supported_algos:
+            raise ValueError('Not A Valid Hashing Algorithm\n'
+                             f'Use {" | ".join(supported_algos)}')
+        return rsa.sign(data, self.private_key, algo)
+
+    def verify_signature(self, data: bytes, signature_data: bytes):
+        """
+        :param data: Data To Check
+        :param signature_data: Signature of Data Which is Signed With RSA
+        :return: True if data is correct else False
+        """
+        if not isinstance(signature_data, bytes):
+            raise ValueError("Signature Data Must Be Bytes")
+        if not isinstance(data, bytes):
+            raise ValueError("Data Must Be Bytes")
+        try:
+            check = rsa.verify(data, signature_data, pub_key=self.public_key)
+        except (ValueError, Exception):
+            return False
+        return True, check
+
+    def sign_file(self, path: str, algo: str = "SHA-1"):
+        if not isinstance(path, str):
+            raise ValueError("Path Must Be String")
+        if not os.path.exists(path):
+            raise FileNotFoundError("File Not Found Please Check The Path")
+        try:
+            with open(path, "rb") as file:
+                data = file.read()
+        except(FileNotFoundError, PermissionError):
+            raise
+        return self.sign(data=data, algo=algo)
+
+    def verify_file(self, path: str, signature_data: bytes):
+        """
+        :param path: Path Of The File
+        :param signature_data: Signed Digest
+        :return: True if data is correct else False
+        """
+        if not isinstance(path, str):
+            raise ValueError("Path Must Be String")
+        try:
+            with open(path, "rb") as file:
+                data = file.read()
+        except(FileNotFoundError, PermissionError):
+            raise
+        return self.verify_signature(data, signature_data)
+
+    @classmethod
+    def generate_keys(cls, size: int = 512) -> None:
+        public, private = rsa.newkeys(size)
+        pri_file = open("private_key.pem", "wb")
+        pub_file = open("public_key.pem", "wb")
+        pri_file.write(private.save_pkcs1())
+        pub_file.write(public.save_pkcs1())
+        return
